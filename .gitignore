@@ -29,3 +29,8 @@ local.properties
 
 # TeXlipse plugin
 .texlipse
+
+##################
+#  APP SPECIFIC  #
+##################
+presentation/
