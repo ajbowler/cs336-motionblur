@@ -34,4 +34,5 @@ local.properties
 #  APP SPECIFIC  #
 ##################
 presentation/
+examples/
 resources/example.html
