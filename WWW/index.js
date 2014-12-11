@@ -148,32 +148,52 @@ var images = [
   imagePath + 'skybox_left.jpg'
 ];
 
-///////////////////////////////////
-////////////  SKYBOX  /////////////
-///////////////////////////////////
-
-var skyboxMap = THREE.ImageUtils.loadTextureCube(images);
-var skyboxShader = THREE.ShaderLib['cube'];
-var skyboxMaterial = new THREE.ShaderMaterial({
-  fragmentShader : skyboxShader.fragmentShader,
-  vertexShader : skyboxShader.vertexShader,
-  uniforms : skyboxShader.uniforms,
-  side : THREE.DoubleSide
-});
-
-var skyboxGeometry = new THREE.BoxGeometry(20000, 20000, 20000);
-
-var skybox = new THREE.Mesh(skyboxGeometry, skyboxMaterial);
-scene.add(skybox);
-
 function start() {
-  window.onKeyPress = handleKeyPress;
+ window.onkeypress = handleKeyPress;
 
-  var htmlCanvas = document.getElementById('theCanvas');
-  var render = new THREE.WebGLRenderer({
-    canvas : htmlCanvas
-  });
-  
+  var scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(45, 1.5, 0.1, 500000);
-  
+  camera.position.x = -180000;
+  camera.position.y = -100000;
+  camera.position.z = 0;
+  camera.lookAt(new THREE.Vector3(40000, -160000, 0));
+
+  var ourCanvas = document.getElementById('theCanvas');
+  var renderer = new THREE.WebGLRenderer(
+  {
+    canvas : ourCanvas
+  });
+
+  // ///////////////////////////////////////////////////////////////////
+  // SKYBOX //
+  // ///////////////////////////////////////////////////////////////////
+  var ourCubeMap = THREE.ImageUtils.loadTextureCube(images);
+  var cubeMapShader = THREE.ShaderLib["cube"];
+  cubeMapShader.uniforms["tCube"].value = ourCubeMap;
+  var material = new THREE.ShaderMaterial(
+  {
+    fragmentShader : cubeMapShader.fragmentShader,
+    vertexShader : cubeMapShader.vertexShader,
+    uniforms : cubeMapShader.uniforms,
+    side : THREE.DoubleSide
+  });
+
+  var geometry = new THREE.BoxGeometry(80000, 80000, 80000);
+
+  // Create a mesh for the object, using the cube shader as the material
+  var cube = new THREE.Mesh(geometry, material);
+  cube.scale.set(5, 5, 5);
+
+  // Add it to the scene
+  scene.add(cube);
+
+
+  var render = function()
+  {
+    requestAnimationFrame(render);
+
+    renderer.render(scene, camera);
+  };
+
+  render();
 }
