@@ -153,8 +153,10 @@ function start() {
 
   var scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(45, 1.5, 0.1, 500000);
-  camera.position.x = -180000;
-  camera.position.y = -100000;
+  // camera.position.x = -180000;
+  camera.position.x = 0;
+  // camera.position.y = -100000;
+  camera.position.y = 0;
   camera.position.z = 0;
   camera.lookAt(new THREE.Vector3(40000, -160000, 0));
 
@@ -164,29 +166,59 @@ function start() {
     canvas : ourCanvas
   });
 
-  // ///////////////////////////////////////////////////////////////////
-  // SKYBOX //
-  // ///////////////////////////////////////////////////////////////////
-  var ourCubeMap = THREE.ImageUtils.loadTextureCube(images);
-  var cubeMapShader = THREE.ShaderLib["cube"];
-  cubeMapShader.uniforms["tCube"].value = ourCubeMap;
-  var material = new THREE.ShaderMaterial(
+  //////////////////////////////////
+  ////////////  SKYBOX  ////////////
+  //////////////////////////////////
+
+  var skyboxMap = THREE.ImageUtils.loadTextureCube(images);
+  var skyboxShader = THREE.ShaderLib["cube"];
+  skyboxShader.uniforms["tCube"].value = skyboxMap;
+  var skyboxMaterial = new THREE.ShaderMaterial(
   {
-    fragmentShader : cubeMapShader.fragmentShader,
-    vertexShader : cubeMapShader.vertexShader,
-    uniforms : cubeMapShader.uniforms,
+    fragmentShader : skyboxShader.fragmentShader,
+    vertexShader : skyboxShader.vertexShader,
+    uniforms : skyboxShader.uniforms,
     side : THREE.DoubleSide
   });
 
-  var geometry = new THREE.BoxGeometry(80000, 80000, 80000);
+  var skyboxGeometry = new THREE.BoxGeometry(80000, 80000, 80000);
 
-  // Create a mesh for the object, using the cube shader as the material
-  var cube = new THREE.Mesh(geometry, material);
-  cube.scale.set(5, 5, 5);
+  var skybox = new THREE.Mesh(skyboxGeometry, skyboxMaterial);
+  skybox.scale.set(5, 5, 5);
 
-  // Add it to the scene
-  scene.add(cube);
+  scene.add(skybox);
 
+  ///////////////////////////////////
+  ///////////  OBJECTS  /////////////
+  ///////////////////////////////////
+
+  var manager = new THREE.LoadingManager();
+  manager.onProgress = function(item, loaded, total) {
+  };
+
+  var onProgress = function(xhr) {
+  };
+
+  var onError = function(xhr) {
+  };
+
+  var car1, car2;
+  var loader = new THREE.OBJMTLLoader();
+  loader.load('../resources/objects/L200-OBJ.obj', '../resources/objects/L200-OBJ.mtl', function(object){
+    object.position.x = 0;
+    object.position.y = 0;
+    object.position.z = 0;
+    scene.add(object);
+    car1 = object;
+  }, onProgress, onError);
+
+  loader.load('../resources/objects/L200-OBJ.obj', '../resources/objects/L200-OBJ.mtl', function(object){
+    object.position.x = 300;
+    object.position.y = 0;
+    object.position.z = 0;
+    scene.add(object);
+    car2 = object;
+  }, onProgress, onError);
 
   var render = function()
   {
