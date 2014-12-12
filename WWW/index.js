@@ -240,8 +240,7 @@ function start() {
   {
     requestAnimationFrame(render);
 
-    var increment = 300;
-    //var increment = document.getElementById('increment');
+    var increment = document.getElementById('increment').value || 300;
     carDummy.position.x -= increment;
     carDummy2.position.x -= increment;
     carDummy3.position.x += increment;
