@@ -5,6 +5,7 @@
  */
 
 var scene = new THREE.Scene();
+var increment = 300;
 
 ////////////////////////////////////////
 /////////  STEVE'S CAMERA CODE  ////////
@@ -240,7 +241,6 @@ function start() {
   {
     requestAnimationFrame(render);
 
-    var increment = document.getElementById('increment').value || 300;
     carDummy.position.x -= increment;
     carDummy2.position.x -= increment;
     carDummy3.position.x += increment;
@@ -257,4 +257,8 @@ function start() {
   };
 
   render();
+}
+
+function getIncrement() {
+  increment = document.getElementById('increment').value || 300;
 }
