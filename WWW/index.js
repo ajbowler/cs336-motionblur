@@ -14,6 +14,7 @@ var increment = 300;
 var axis = 'z';
 var paused = false;
 var camera;
+var carDummy;
 
 // translate keypress events to strings
 // from http://javascript.info/tutorial/keyboard-events
@@ -205,7 +206,7 @@ function start() {
   ///////////////////////////////////
 
   // Create a car
-  var carDummy = new THREE.Object3D();
+  carDummy = new THREE.Object3D();
 
   var carGeometry = new THREE.BoxGeometry(1, 1, 1);
   var carMaterial = new THREE.MeshPhongMaterial({
@@ -217,40 +218,19 @@ function start() {
 
   var car = new THREE.Mesh(carGeometry, carMaterial);
   carDummy.add(car);
-  carDummy.position.set(20000, -8010, -6640);
-  carDummy.scale.set(2000, 3000, 6000);
+  carDummy.position.set(20000, -8010, 640);
+  carDummy.scale.set(16000, 3000, 8000);
 
   carDummy.rotation.y += 90 * Math.PI / 180;
 
-  // Make a total of 4 cars.
-  var carDummy2 = carDummy.clone();
-  var carDummy3 = carDummy.clone();
-  var carDummy4 = carDummy.clone();
-
-  // Set their positions on the road.
-  carDummy2.position.set(20000, -8010, -15100);
-  carDummy3.position.set(-20000, -8010, 6640);
-  carDummy4.position.set(-20000, -8010, 15100);
-
   scene.add(carDummy);
-  scene.add(carDummy2);
-  scene.add(carDummy3);
-  scene.add(carDummy4);
-
   var render = function()
   {
     requestAnimationFrame(render);
 
     carDummy.position.x -= increment;
-    carDummy2.position.x -= increment;
-    carDummy3.position.x += increment;
-    carDummy4.position.x += increment;
-
     if(carDummy.position.x < -30000) {
-      carDummy.position.set(20000, -8010, -6640);
-      carDummy2.position.set(20000, -8010, -15100);
-      carDummy3.position.set(-20000, -8010, 6640);
-      carDummy4.position.set(-20000, -8010, 15100);
+      carDummy.position.set(20000, -8010, 640);
     }
 
     renderer.render(scene, camera);
