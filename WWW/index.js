@@ -4,17 +4,30 @@
  * An experiment with motion blur of dynamic objects using Three.js
  */
 
+var axis = 'z';
+var paused = false;
+var camera;
+
 var scene = new THREE.Scene();
 var increment = 300;
+var carDummy;
+var composer;
+var composer2;
+var pass;
+var pass2;
+
+var clock = new THREE.Clock();
+
+var currentMatrix = new THREE.Matrix4();
+var previousMatrix = new THREE.Matrix4();
+var tmpArray = new THREE.Matrix4();
+var projectionMatrixInverse = new THREE.Matrix4();
+
+var depthMaterial;
 
 ////////////////////////////////////////
 /////////  STEVE'S CAMERA CODE  ////////
 ////////////////////////////////////////
-
-var axis = 'z';
-var paused = false;
-var camera;
-var carDummy;
 
 // translate keypress events to strings
 // from http://javascript.info/tutorial/keyboard-events
@@ -153,7 +166,9 @@ var images = [
 var planeImage = imagePath + 'roads.jpg';
 
 function start() {
- window.onkeypress = handleKeyPress;
+  window.onkeypress = handleKeyPress;
+
+  var worldGeometry = new THREE.Geometry();
 
   var scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(45, 1.5, 0.1, 100000);
@@ -168,6 +183,21 @@ function start() {
   var renderer = new THREE.WebGLRenderer(
   {
     canvas : ourCanvas
+  });
+
+  //////////////////////////////////
+  ///////////  SHADERS  ////////////
+  //////////////////////////////////
+
+  depthMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+      mNear: { type: 'f', value: camera.near },
+      mFar: { type: 'f', value: camera.far },
+      opacity: { type: 'f', value: 1 }
+    },
+
+    vertexShader: document.getElementById( 'vs-depthRender' ).textContent,
+    fragmentShader: document.getElementById( 'fs-depthRender' ).textContent
   });
 
   //////////////////////////////////
@@ -224,18 +254,89 @@ function start() {
   carDummy.rotation.y += 90 * Math.PI / 180;
 
   scene.add(carDummy);
-  var render = function()
+
+  var ourCanvas = document.getElementById('theCanvas');
+  var renderer = new THREE.WebGLRenderer(
   {
-    requestAnimationFrame(render);
+    canvas : ourCanvas,
+    antialias: true
+  });
 
-    carDummy.position.x -= increment;
-    if(carDummy.position.x < -30000) {
-      carDummy.position.set(20000, -8010, 640);
-    }
+  composer = new THREE.EffectComposer(renderer);
+  composer.addPass(new THREE.RenderPass(scene, camera));
 
-    renderer.render(scene, camera);
+  composer2 = new THREE.EffectComposer(renderer);
+  composer2.addPass(new THREE.RenderPass(scene, camera));
+
+  var motionBlurShader = {
+    uniforms: {
+      tDiffuse: { type: 't', value: null },
+      tColor: { type: 't', value: null },
+      resolution: { type: 'v2', value: new THREE.Vector2( 1, 1 ) },
+      viewProjectionInverseMatrix: { type: 'm4', value: new THREE.Matrix4() },
+      previousViewProjectionMatrix: { type: 'm4', value: new THREE.Matrix4() },
+      velocityFactor: { type: 'f', value: 1 }
+    },
+
+    vertexShader: document.getElementById( 'vs-motionBlur' ).textContent,
+    fragmentShader: document.getElementById( 'fs-motionBlur' ).textContent
   };
 
+  pass = new THREE.ShaderPass(motionBlurShader);
+  pass.renderToScreen = true;
+  composer.addPass(pass);
+
+  // var render = function()
+  // {
+  //   requestAnimationFrame(render);
+
+  //   carDummy.position.x -= increment;
+  //   if(carDummy.position.x < -30000) {
+  //     carDummy.position.set(20000, -8010, 640);
+  //   }
+
+  //   renderer.render(scene, camera);
+  // };
+
+  var lastTime = Date.now();
+
+  var render = function() {
+
+    requestAnimationFrame(render);
+
+    var ellapsedFactor = clock.getDelta();
+
+    var t = Date.now();
+    if( t - lastTime > ( 1000 ) ) {
+
+      pass.material.uniforms.velocityFactor.value = 1;
+
+      carDummy.position.x -= increment;
+      if(carDummy.position.x < -30000) {
+        carDummy.position.set(20000, -8010, 640);
+      }
+
+      camera.updateMatrix();
+      camera.updateMatrixWorld();
+
+      tmpArray.copy( camera.matrixWorldInverse );
+      tmpArray.multiply( camera.projectionMatrix );
+      currentMatrix.getInverse( tmpArray );
+
+      pass.material.uniforms.viewProjectionInverseMatrix.value.copy( currentMatrix );
+      pass.material.uniforms.previousViewProjectionMatrix.value.copy( previousMatrix ); 
+
+      composer2.render();
+
+      pass.material.uniforms.tColor.value = composer2.renderTarget2;
+      composer.render();
+
+      previousMatrix.copy( tmpArray );
+
+      lastTime = t;
+
+    }
+  }
   render();
 }
 
