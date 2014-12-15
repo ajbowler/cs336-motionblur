@@ -1,157 +1,29 @@
-/**
- * @author Andrew Bowler
- *
- * An experiment with motion blur of dynamic objects using Three.js
- */
-
-var axis = 'z';
-var paused = false;
-var camera;
-
-var scene = new THREE.Scene();
-var increment = 10;
+var container;
+var g;
+var camera, controls, scene, projector, renderer;
 var car;
-var composer;
-var composer2;
-var pass;
-var pass2;
-
+var objects = [], plane, sphere;
+var composer, pass, composer2, pass2;
+var mesh;
 var clock = new THREE.Clock();
+var lon = lat = 0, position = { x: 0, y: 0 }, isUserInteracting = false;
+var keys = { up: false, left: false, right: false, down: false, forward: false, back: false };
+var fov = nfov = 70;
 
-var currentMatrix = new THREE.Matrix4();
-var previousMatrix = new THREE.Matrix4();
+var mCurrent = new THREE.Matrix4();
+var mPrev = new THREE.Matrix4();
 var tmpArray = new THREE.Matrix4();
-var projectionMatrixInverse = new THREE.Matrix4();
+var camTranslateSpeed = new THREE.Vector3();
+var prevCamPos = new THREE.Vector3();
+
+var mouse = new THREE.Vector2(),
+offset = new THREE.Vector3(),
+INTERSECTED, SELECTED;
 
 var depthMaterial;
-
-////////////////////////////////////////
-/////////  STEVE'S CAMERA CODE  ////////
-////////////////////////////////////////
-
-// translate keypress events to strings
-// from http://javascript.info/tutorial/keyboard-events
-function getChar(event)
-{
-  if (event.which == null)
-  {
-    return String.fromCharCode(event.keyCode) // IE
-  }
-  else if (event.which != 0 && event.charCode != 0)
-  {
-    return String.fromCharCode(event.which) // the rest
-  }
-  else
-  {
-    return null; // special key
-  }
-}
-
-function cameraControl(c, ch)
-{
-  var distance = c.position.length();
-  var q, q2;
-
-  switch (ch)
-  {
-  // camera controls
-  case 'w':
-    c.translateZ(-100);
-    return true;
-  case 'a':
-    c.translateX(-100);
-    return true;
-  case 's':
-    c.translateZ(100);
-    return true;
-  case 'd':
-    c.translateX(100);
-    return true;
-  case 'r':
-    c.translateY(100);
-    return true;
-  case 'f':
-    c.translateY(-100);
-    return true;
-  case 'j':
-    // need to do extrinsic rotation about world y axis, so multiply
-    // camera's quaternion
-    // on left
-    q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0),
-        5 * Math.PI / 180);
-    q2 = new THREE.Quaternion().copy(c.quaternion);
-    c.quaternion.copy(q).multiply(q2);
-    return true;
-  case 'l':
-    q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0),
-        -5 * Math.PI / 180);
-    q2 = new THREE.Quaternion().copy(c.quaternion);
-    c.quaternion.copy(q).multiply(q2);
-    return true;
-  case 'i':
-    // intrinsic rotation about camera's x-axis
-    c.rotateX(5 * Math.PI / 180);
-    return true;
-  case 'k':
-    c.rotateX(-5 * Math.PI / 180);
-    return true;
-  case 'O':
-    c.lookAt(new THREE.Vector3(0, 0, 0));
-    return true;
-  case 'S':
-    c.fov = Math.min(80, c.fov + 5);
-    c.updateProjectionMatrix();
-    return true;
-  case 'W':
-    c.fov = Math.max(5, c.fov - 5);
-    c.updateProjectionMatrix();
-    return true;
-
-    // alternates for arrow keys
-  case 'J':
-    // this.orbitLeft(5, distance)
-    c.translateZ(-distance);
-    q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0),
-        5 * Math.PI / 180);
-    q2 = new THREE.Quaternion().copy(c.quaternion);
-    c.quaternion.copy(q).multiply(q2);
-    c.translateZ(distance)
-    return true;
-  case 'L':
-    // this.orbitRight(5, distance)
-    c.translateZ(-distance);
-    q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0),
-        -5 * Math.PI / 180);
-    q2 = new THREE.Quaternion().copy(c.quaternion);
-    c.quaternion.copy(q).multiply(q2);
-    c.translateZ(distance)
-    return true;
-  case 'I':
-    // this.orbitUp(5, distance)
-    c.translateZ(-distance);
-    c.rotateX(-5 * Math.PI / 180);
-    c.translateZ(distance)
-    return true;
-  case 'K':
-    // this.orbitDown(5, distance)
-    c.translateZ(-distance);
-    c.rotateX(5 * Math.PI / 180);
-    c.translateZ(distance)
-    return true;
-  }
-  return false;
-}
-
-function handleKeyPress(event)
-{
-  var ch = getChar(event);
-  if (cameraControl(camera, ch))
-    return;
-}
-
-///////////////////////////////////
-////////////  IMAGES  /////////////
-///////////////////////////////////
+var meshMaterial = new THREE.MeshPhongMaterial( { color: 0x806040, specular: 0xffffff, specularity: 10, shading: THREE.FlatShading });
+var meshMaterial2 = new THREE.MeshBasicMaterial( { color: 0xffffff, emissive: 0xffffff });
+var sphereMaterial = new THREE.MeshNormalMaterial( { color: 0xff00ff, specular: 0x806040, specularity: 10, shading: THREE.SmoothShading });
 
 var imagePath = '../resources/images/';
 var images = [
@@ -165,46 +37,74 @@ var images = [
 
 var planeImage = imagePath + 'roads.jpg';
 
-function start() {
-  window.onkeypress = handleKeyPress;
+var Params = function() { 
+  this.blur = 1;
+  this.fps = 60;
+  this.carSpeed = 20;
+};
+var params = new Params();
 
-  var worldGeometry = new THREE.Geometry();
+init();
+animate();
 
-  var scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(45, 1.5, 0.1, 10000);
-  camera.position.x = 2900;
-  camera.position.y = 2000;
-  camera.position.z = 120;
-  camera.lookAt(new THREE.Vector3(-1000, -500, 0));
-  var light = new THREE.AmbientLight( 0xB0B0B0 );
+function init() {
+
+  container = document.createElement( 'div' );
+  document.body.appendChild( container );
+
+  camera = new THREE.PerspectiveCamera( fov, window.innerWidth / window.innerHeight, 1, 9000 );
+  camera.position.set( 10, 0, 0 );
+
+  /*controls = new THREE.TrackballControls( camera );
+  controls.rotateSpeed = 1.0;
+  controls.zoomSpeed = 1.2;
+  controls.panSpeed = 0.8;
+  controls.noZoom = false;
+  controls.noPan = false;
+  controls.staticMoving = true;
+  controls.dynamicDampingFactor = 0.3;*/
+  controls = new THREE.OrbitControls( camera );
+  controls.damping = 0.2;
+  controls.keyPanSpeed = 700;
+
+  scene = new THREE.Scene();
+
+  scene.add( new THREE.AmbientLight( 0x505050 ) );
+
+  var light = new THREE.SpotLight( 0xffffff, 1.5 );
+  light.position.set( 0, 500, 2000 );
+  light.castShadow = true;
+
+  light.shadowCameraNear = 200;
+  light.shadowCameraFar = camera.far;
+  light.shadowCameraFov = 50;
+
+  light.shadowBias = -0.00022;
+  light.shadowDarkness = 0.5;
+
+  light.shadowMapWidth = 2048;
+  light.shadowMapHeight = 2048;
+
+  var light = new THREE.SpotLight( 0xffffff, 1.5 );
+  light.position.set( 500, -500, 2000 );
+  light.castShadow = true;
+
+  light.shadowCameraNear = 200;
+  light.shadowCameraFar = camera.far;
+  light.shadowCameraFov = 50;
+
+  light.shadowBias = -0.00022;
+  light.shadowDarkness = 0.5;
+
+  light.shadowMapWidth = 2048;
+  light.shadowMapHeight = 2048;
+
   scene.add( light );
 
-  var ourCanvas = document.getElementById('theCanvas');
-  var renderer = new THREE.WebGLRenderer(
-  {
-    canvas : ourCanvas,
-    antialias: false
-  });
-
-  //////////////////////////////////
-  ///////////  SHADERS  ////////////
-  //////////////////////////////////
-
-  depthMaterial = new THREE.ShaderMaterial({
-    uniforms: {
-      mNear: { type: 'f', value: camera.near },
-      mFar: { type: 'f', value: camera.far },
-      opacity: { type: 'f', value: 1 }
-    },
-
-    vertexShader: document.getElementById( 'vs-depthRender' ).textContent,
-    fragmentShader: document.getElementById( 'fs-depthRender' ).textContent
-  });
-
-  //////////////////////////////////
-  ////////////  SKYBOX  ////////////
-  //////////////////////////////////
-
+  sphere = new THREE.Mesh( new THREE.SphereGeometry( 1500, 30, 30 ), sphereMaterial );
+  sphere.scale.x = -1;
+  //scene.add( sphere );
+  
   var skyboxMap = THREE.ImageUtils.loadTextureCube(images);
   var skyboxShader = THREE.ShaderLib["cube"];
   skyboxShader.uniforms["tCube"].value = skyboxMap;
@@ -232,12 +132,12 @@ function start() {
   road.position.y -= 500;
   scene.add(road);
 
-  ///////////////////////////////////
-  ///////////  OBJECTS  /////////////
-  ///////////////////////////////////
+  var s = 3;
+  g = new THREE.Geometry();
+  var geometry = new THREE.BoxGeometry( 40, 40, 40 );
 
-  // Create a car
   var carGeometry = new THREE.BoxGeometry(1, 1, 1);
+
   var carMaterial = new THREE.MeshPhongMaterial({
     color : 0xcc0000,
     ambient : 0xff0000,
@@ -245,30 +145,61 @@ function start() {
     shininess : 50
   });
 
-  var car = new THREE.Mesh(carGeometry, carMaterial);
-  car.position.set(200, -260, 640);
+  car = new THREE.Mesh(carGeometry, carMaterial);
+  car.position.set(800, -260, 640);
   car.scale.set(160, 300, 800);
 
   car.rotation.y += 90 * Math.PI / 180;
 
   car.updateMatrixWorld();
 
+  //THREE.GeometryUtils.merge( g, object );
+  g.merge( car.geometry, car.matrixWorld );
+
+  
+
+  depthMaterial = new THREE.ShaderMaterial( {
+
+    uniforms: {
+      mNear: { type: 'f', value: camera.near },
+      mFar: { type: 'f', value: camera.far },
+      opacity: { type: 'f', value: 1 }
+    },
+
+    vertexShader: document.getElementById( 'vs-depthRender' ).textContent,
+    fragmentShader: document.getElementById( 'fs-depthRender' ).textContent
+  } );
+
+  mesh = new THREE.Mesh( g, depthMaterial );
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  scene.add( mesh );
   scene.add(car);
 
-  var ourCanvas = document.getElementById('theCanvas');
-  var renderer = new THREE.WebGLRenderer(
-  {
-    canvas : ourCanvas,
-    antialias: true
-  });
+  mesh2 = new THREE.Mesh( g, depthMaterial );
+  scene.add( mesh2 );
 
-  composer = new THREE.EffectComposer(renderer);
-  composer.addPass(new THREE.RenderPass(scene, camera));
+  plane = new THREE.Mesh( new THREE.PlaneBufferGeometry( 2000, 2000, 8, 8 ), new THREE.MeshBasicMaterial( { color: 0x000000, opacity: 0.25, transparent: true, wireframe: true } ) );
+  plane.visible = false;
+  scene.add( plane );
 
-  composer2 = new THREE.EffectComposer(renderer);
-  composer2.addPass(new THREE.RenderPass(scene, camera));
+  projector = new THREE.Projector();
 
-  var motionBlurShader = {
+  renderer = new THREE.WebGLRenderer( { antialias: true } );
+  document.body.appendChild( renderer.domElement );
+  renderer.sortObjects = false;
+  renderer.setClearColor( 0 );
+  renderer.shadowMapEnabled = true;
+  renderer.shadowMapType = THREE.PCFShadowMap;
+
+  composer = new THREE.EffectComposer( renderer );
+  composer.addPass( new THREE.RenderPass( scene, camera ) );
+
+  composer2 = new THREE.EffectComposer( renderer );
+  composer2.addPass( new THREE.RenderPass( scene, camera ) );
+
+  shader = {
+
     uniforms: {
       tDiffuse: { type: 't', value: null },
       tColor: { type: 't', value: null },
@@ -280,66 +211,94 @@ function start() {
 
     vertexShader: document.getElementById( 'vs-motionBlur' ).textContent,
     fragmentShader: document.getElementById( 'fs-motionBlur' ).textContent
-  };
-
-  pass = new THREE.ShaderPass(motionBlurShader);
-  pass.renderToScreen = true;
-  composer.addPass(pass);
-
-  // var render = function()
-  // {
-  //   requestAnimationFrame(render);
-
-  //   car.position.x -= increment;
-  //   if(car.position.x < -3000) {
-  //     car.position.set(200, -260, 640);
-  //   }
-
-  //   renderer.render(scene, camera);
-  // };
-
-  var lastTime = Date.now();
-
-  var render = function() {
-
-    requestAnimationFrame(render);
-
-    var ellapsedFactor = clock.getDelta();
-
-    var t = Date.now();
-    if( t - lastTime > ( 1000 ) ) {
-
-      pass.material.uniforms.velocityFactor.value = 1;
-
-      car.position.x -= increment;
-      if(car.position.x < -3000) {
-        car.position.set(200, -260, 640);
-      }
-
-      camera.updateMatrix();
-      camera.updateMatrixWorld();
-
-      tmpArray.copy( camera.matrixWorldInverse );
-      tmpArray.multiply( camera.projectionMatrix );
-      currentMatrix.getInverse( tmpArray );
-
-      pass.material.uniforms.viewProjectionInverseMatrix.value.copy( currentMatrix );
-      pass.material.uniforms.previousViewProjectionMatrix.value.copy( previousMatrix ); 
-
-      composer2.render();
-
-      pass.material.uniforms.tColor.value = composer2.renderTarget2;
-      composer.render();
-
-      previousMatrix.copy( tmpArray );
-
-      lastTime = t;
-
-    }
   }
-  render();
+
+  pass = new THREE.ShaderPass( shader );
+  pass.renderToScreen = true;
+  composer.addPass( pass );
+
+  container.appendChild( renderer.domElement );
+
+  window.addEventListener( 'resize', onWindowResize, false );
+  onWindowResize();
+
+  var gui = new dat.GUI();
+  gui.add(params, 'blur', .1, 10 );
+  gui.add(params, 'fps', 1, 60 );
+  gui.add(params, 'carSpeed', 0, 100);
+
 }
 
-function getIncrement() {
-  increment = document.getElementById('increment').value || 10;
+function onWindowResize() {
+
+  var s = 1;
+  composer.setSize( s * window.innerWidth, s * window.innerHeight );
+  composer2.setSize( s * window.innerWidth, s * window.innerHeight );
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+
+  renderer.setSize( s * window.innerWidth, s * window.innerHeight );
+  pass.uniforms.resolution.value.set( s * window.innerWidth, s * window.innerHeight );
+
+}
+  
+//
+
+function animate() {
+
+  requestAnimationFrame( animate );
+
+  render();
+  
+}
+
+var animationSpeed = 10;
+var lastTime = Date.now();
+var projectionMatrixInverse = new THREE.Matrix4();
+
+function render() {
+
+  var ellapsedFactor = clock.getDelta();
+
+  var t = Date.now();
+  if( t - lastTime > ( 1000 / params.fps ) ) {
+
+    pass.material.uniforms.velocityFactor.value = params.blur;
+
+    scene.remove(mesh2);
+    scene.remove(mesh);
+    car.position.x -= params.carSpeed;
+    if(car.position.x < -3000) {
+      car.position.set(800, -260, 640);
+    }
+
+
+    camera.updateMatrix();
+    camera.updateMatrixWorld();
+
+    tmpArray.copy( camera.matrixWorldInverse );
+    tmpArray.multiply( camera.projectionMatrix );
+    mCurrent.getInverse( tmpArray );
+
+    pass.material.uniforms.viewProjectionInverseMatrix.value.copy( mCurrent );
+    pass.material.uniforms.previousViewProjectionMatrix.value.copy( mPrev );
+    
+    mesh.material = meshMaterial;
+    mesh2.material = meshMaterial2;
+    composer2.render();
+
+    mesh.material = depthMaterial;
+    mesh2.material = depthMaterial;
+    pass.material.uniforms.tColor.value = composer2.renderTarget2;
+    composer.render();
+
+    mPrev.copy( tmpArray );
+
+    prevCamPos.copy( camera.position );
+
+    lastTime = t;
+
+  }
+  //renderer.render( scene, camera );
+
 }
