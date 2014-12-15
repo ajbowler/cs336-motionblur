@@ -9,7 +9,7 @@ var paused = false;
 var camera;
 
 var scene = new THREE.Scene();
-var increment = 300;
+var increment = 10;
 var carDummy;
 var composer;
 var composer2;
@@ -171,18 +171,19 @@ function start() {
   var worldGeometry = new THREE.Geometry();
 
   var scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(45, 1.5, 0.1, 100000);
-  camera.position.x = 19000;
-  camera.position.y = 9800;
-  camera.position.z = 1400;
-  camera.lookAt(new THREE.Vector3(-1000, -6000, 0));
+  camera = new THREE.PerspectiveCamera(45, 1.5, 0.1, 10000);
+  camera.position.x = 2900;
+  camera.position.y = 2000;
+  camera.position.z = 120;
+  camera.lookAt(new THREE.Vector3(-1000, -500, 0));
   var light = new THREE.AmbientLight( 0xB0B0B0 );
   scene.add( light );
 
   var ourCanvas = document.getElementById('theCanvas');
   var renderer = new THREE.WebGLRenderer(
   {
-    canvas : ourCanvas
+    canvas : ourCanvas,
+    antialias: false
   });
 
   //////////////////////////////////
@@ -215,20 +216,20 @@ function start() {
     side : THREE.BackSide
   });
 
-  var skyboxGeometry = new THREE.BoxGeometry(10000, 10000, 10000);
+  var skyboxGeometry = new THREE.BoxGeometry(1000, 1000, 1000);
 
   var skybox = new THREE.Mesh(skyboxGeometry, skyboxMaterial);
   skybox.scale.set(5, 5, 5);
   scene.add(skybox);
 
-  var roadGeometry = new THREE.PlaneGeometry( 49500, 49500);
+  var roadGeometry = new THREE.PlaneGeometry( 6000, 6000);
   var roadMaterial = new THREE.MeshPhongMaterial({
     map: THREE.ImageUtils.loadTexture(planeImage)
   });
 
   var road = new THREE.Mesh(roadGeometry, roadMaterial);
   road.rotation.x -= 90 * Math.PI / 180;
-  road.position.y -= 10000;
+  road.position.y -= 500;
   scene.add(road);
 
   ///////////////////////////////////
@@ -248,8 +249,8 @@ function start() {
 
   var car = new THREE.Mesh(carGeometry, carMaterial);
   carDummy.add(car);
-  carDummy.position.set(20000, -8010, 640);
-  carDummy.scale.set(16000, 3000, 8000);
+  carDummy.position.set(200, -260, 640);
+  carDummy.scale.set(160, 300, 800);
 
   carDummy.rotation.y += 90 * Math.PI / 180;
 
@@ -291,8 +292,8 @@ function start() {
   //   requestAnimationFrame(render);
 
   //   carDummy.position.x -= increment;
-  //   if(carDummy.position.x < -30000) {
-  //     carDummy.position.set(20000, -8010, 640);
+  //   if(carDummy.position.x < -3000) {
+  //     carDummy.position.set(200, -260, 640);
   //   }
 
   //   renderer.render(scene, camera);
@@ -312,8 +313,8 @@ function start() {
       pass.material.uniforms.velocityFactor.value = 1;
 
       carDummy.position.x -= increment;
-      if(carDummy.position.x < -30000) {
-        carDummy.position.set(20000, -8010, 640);
+      if(carDummy.position.x < -3000) {
+        carDummy.position.set(200, -260, 640);
       }
 
       camera.updateMatrix();
@@ -341,5 +342,5 @@ function start() {
 }
 
 function getIncrement() {
-  increment = document.getElementById('increment').value || 300;
+  increment = document.getElementById('increment').value || 10;
 }
