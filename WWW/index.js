@@ -10,7 +10,7 @@ var camera;
 
 var scene = new THREE.Scene();
 var increment = 10;
-var carDummy;
+var car;
 var composer;
 var composer2;
 var pass;
@@ -237,8 +237,6 @@ function start() {
   ///////////////////////////////////
 
   // Create a car
-  carDummy = new THREE.Object3D();
-
   var carGeometry = new THREE.BoxGeometry(1, 1, 1);
   var carMaterial = new THREE.MeshPhongMaterial({
     color : 0xcc0000,
@@ -248,13 +246,14 @@ function start() {
   });
 
   var car = new THREE.Mesh(carGeometry, carMaterial);
-  carDummy.add(car);
-  carDummy.position.set(200, -260, 640);
-  carDummy.scale.set(160, 300, 800);
+  car.position.set(200, -260, 640);
+  car.scale.set(160, 300, 800);
 
-  carDummy.rotation.y += 90 * Math.PI / 180;
+  car.rotation.y += 90 * Math.PI / 180;
 
-  scene.add(carDummy);
+  car.updateMatrixWorld();
+
+  scene.add(car);
 
   var ourCanvas = document.getElementById('theCanvas');
   var renderer = new THREE.WebGLRenderer(
@@ -291,9 +290,9 @@ function start() {
   // {
   //   requestAnimationFrame(render);
 
-  //   carDummy.position.x -= increment;
-  //   if(carDummy.position.x < -3000) {
-  //     carDummy.position.set(200, -260, 640);
+  //   car.position.x -= increment;
+  //   if(car.position.x < -3000) {
+  //     car.position.set(200, -260, 640);
   //   }
 
   //   renderer.render(scene, camera);
@@ -312,9 +311,9 @@ function start() {
 
       pass.material.uniforms.velocityFactor.value = 1;
 
-      carDummy.position.x -= increment;
-      if(carDummy.position.x < -3000) {
-        carDummy.position.set(200, -260, 640);
+      car.position.x -= increment;
+      if(car.position.x < -3000) {
+        car.position.set(200, -260, 640);
       }
 
       camera.updateMatrix();

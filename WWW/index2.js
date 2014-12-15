@@ -1,137 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <title>three.js webgl - Motion blur</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-    <style>
-      *{ box-sizing: border-box;}
-      body {
-        font-family: tahoma;
-        background-color: #f0f0f0;
-        margin: 0px;
-        overflow: hidden;
-        font-size: 12px;
-      }
-      p{ color: white; position: absolute; left: 10px; top: 5px; text-shadow: 0 -1px 0 rgba( 0, 0, 0, .6 ); z-index: 100;}
-    </style>
-
-  </head>
-  <body>
-
-    <p>Motion blur as post-processing effect test</p><!--: Click and drag to rotate camera, WASDX and Space to move around</p>-->
-
-    <script src="//cdnjs.cloudflare.com/ajax/libs/three.js/r69/three.min.js"></script>
-    <script src="../lib/MaskPass.js"></script>
-    <script src="../lib/OrbitControls.js"></script>
-    <script src="../lib/dat.gui.min.js"></script>
-
-    <script src="../lib/CopyShader.js"></script>
-    <script src="../lib/EffectComposer.js"></script>
-    <script src="../lib/ShaderPass.js"></script>
-    <script src="../lib/RenderPass.js"></script>
-
-    <script type="x-shader/x-vertex" id="vs-motionBlur">
-
-      varying vec2 vUv;
-      
-      void main() {
-
-        gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
-        vUv = uv;
-
-      }
-
-    </script>
-
-    <script type="x-shader/x-fragment" id="fs-motionBlur">
-
-      varying vec2 vUv;
-      uniform sampler2D tDiffuse;
-      uniform sampler2D tColor;
-      uniform vec2 resolution;
-      uniform mat4 viewProjectionInverseMatrix;
-      uniform mat4 previousViewProjectionMatrix;
-      uniform float velocityFactor;
-
-      float unpack_depth(const in vec4 color) {
-        return color.r;
-        //return ( color.r * 256. * 256. * 256. + color.g * 256. * 256. + color.b * 256. + color.a ) / ( 256. * 256. * 256. );
-      }
-
-      void main() {
-        
-        float zOverW = unpack_depth( texture2D( tDiffuse, vUv ) );
-
-        // H is the viewport position at this pixel in the range -1 to 1.  
-        vec4 H = vec4( vUv.x * 2. - 1., vUv.y * 2. - 1., zOverW, 1. );  
-        // Transform by the view-projection inverse.  
-        vec4 D = H * viewProjectionInverseMatrix;
-        // Divide by w to get the world position.  
-        vec4 worldPos = D / D.w;
-
-        vec4 currentPos = H;  
-        // Use the world position, and transform by the previous view-projection matrix.  
-        vec4 previousPos = worldPos * previousViewProjectionMatrix;  
-        // Convert to nonhomogeneous points [-1,1] by dividing by w.  
-        previousPos /= previousPos.w;  
-        // Use this frame's position and last frame's to compute the pixel velocity.  
-        vec2 velocity = velocityFactor * ( currentPos.xy - previousPos.xy ) * .5;
-        //velocity = .01 *  normalize( velocity ); 
-
-        vec4 finalColor = vec4( 0. );
-        vec2 offset = vec2( 0. ); 
-        float weight = 0.;
-        const int samples = 20;
-        for( int i = 0; i < samples; i++ ) {  
-          offset = velocity * ( float( i ) / ( float( samples ) - 1. ) - .5 );
-          vec4 c = texture2D( tColor, vUv + offset );
-          finalColor += c;
-        }  
-        finalColor /= float( samples );
-        gl_FragColor = vec4( finalColor.rgb, 1. );
-      }
-
-    </script>
-
-    <script type="x-shader/x-vertex" id="vs-depthRender">
-      
-      void main() {
-
-        vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
-        gl_Position = projectionMatrix * mvPosition;
-
-      }
-
-    </script>
-
-    <script type="x-shader/x-fragment" id="fs-depthRender">
-    
-    uniform float mNear;
-    uniform float mFar;
-    uniform float opacity;
-
-    vec4 pack_depth( const in float f ) {
-      vec4 color;
-      color.r = floor( f / ( 256. * 256. * 256. ) );
-      color.g = floor( ( mod( f,  256. * 256. * 256. ) ) / ( 256. * 256. ) );
-      color.b = floor( ( mod( f,  256. * 256. ) ) / 256. );
-      color.a = floor( mod( f, 256.)  );
-      return color / 256.0;
-    }
-
-    void main() {
-      float depth = gl_FragCoord.z / gl_FragCoord.w;
-      float color = 1. - ( depth - mNear ) / ( mFar - mNear );
-      // color *= 256. * 256. * 256. * 256.;
-      // gl_FragColor = pack_depth( color );
-      gl_FragColor = vec4( color, color, color, 1. );
-    }
-
-    </script>
-
-    <script>
-
       var container;
       var camera, controls, scene, projector, renderer;
       var objects = [], plane, sphere;
@@ -157,18 +23,6 @@
       var meshMaterial2 = new THREE.MeshBasicMaterial( { color: 0xffffff, emissive: 0xffffff });
       var sphereMaterial = new THREE.MeshNormalMaterial( { color: 0xff00ff, specular: 0x806040, specularity: 10, shading: THREE.SmoothShading });
 
-      var imagePath = '../resources/images/';
-      var images = [
-        imagePath + 'px.png',
-        imagePath + 'nx.png',
-        imagePath + 'py.png',
-        imagePath + 'ny.png',
-        imagePath + 'pz.png',
-        imagePath + 'nz.png'
-      ];
-
-var planeImage = imagePath + 'roads.jpg';
-
       var Params = function() { 
         this.speed = 5;
         this.blur = 1;
@@ -185,7 +39,7 @@ var planeImage = imagePath + 'roads.jpg';
         container = document.createElement( 'div' );
         document.body.appendChild( container );
 
-        camera = new THREE.PerspectiveCamera( fov, window.innerWidth / window.innerHeight, 1, 9000 );
+        camera = new THREE.PerspectiveCamera( fov, window.innerWidth / window.innerHeight, 1, 3000 );
         camera.position.set( 10, 0, 0 );
 
         /*controls = new THREE.TrackballControls( camera );
@@ -202,7 +56,7 @@ var planeImage = imagePath + 'roads.jpg';
 
         scene = new THREE.Scene();
 
-        scene.add( new THREE.AmbientLight( 0x505050 ) );
+        scene.add( new THREE.AmbientLight( 0xb70000 ) );
 
         var light = new THREE.SpotLight( 0xffffff, 1.5 );
         light.position.set( 0, 500, 2000 );
@@ -236,74 +90,36 @@ var planeImage = imagePath + 'roads.jpg';
 
         sphere = new THREE.Mesh( new THREE.SphereGeometry( 1500, 30, 30 ), sphereMaterial );
         sphere.scale.x = -1;
-        //scene.add( sphere );
-        
-        var skyboxMap = THREE.ImageUtils.loadTextureCube(images);
-        var skyboxShader = THREE.ShaderLib["cube"];
-        skyboxShader.uniforms["tCube"].value = skyboxMap;
-        var skyboxMaterial = new THREE.ShaderMaterial(
-        {
-          fragmentShader : skyboxShader.fragmentShader,
-          vertexShader : skyboxShader.vertexShader,
-          uniforms : skyboxShader.uniforms,
-          side : THREE.BackSide
-        });
-
-        var skyboxGeometry = new THREE.BoxGeometry(1000, 1000, 1000);
-
-        var skybox = new THREE.Mesh(skyboxGeometry, skyboxMaterial);
-        skybox.scale.set(5, 5, 5);
-        scene.add(skybox);
-
-        var roadGeometry = new THREE.PlaneGeometry( 6000, 6000);
-        var roadMaterial = new THREE.MeshPhongMaterial({
-          map: THREE.ImageUtils.loadTexture(planeImage)
-        });
-
-        var road = new THREE.Mesh(roadGeometry, roadMaterial);
-        road.rotation.x -= 90 * Math.PI / 180;
-        road.position.y -= 500;
-        scene.add(road);
+        scene.add( sphere );
 
         var s = 3;
         var g = new THREE.Geometry();
         var geometry = new THREE.BoxGeometry( 40, 40, 40 );
-        //var geometry = new THREE.IcosahedronGeometry( 40, 1 );
+        var geometry = new THREE.IcosahedronGeometry( 40, 1 );
 
-        // var object = new THREE.Mesh( geometry, depthMaterial );//new THREE.MeshLambertMaterial( { color: Math.random() * 0xffffff } ) );
+        for ( var i = 0; i < 500; i ++ ) {
 
-        // object.material.ambient = object.material.color;
+          var object = new THREE.Mesh( geometry, depthMaterial );//new THREE.MeshLambertMaterial( { color: Math.random() * 0xffffff } ) );
 
-        // object.position.x = s * ( Math.random() * 1000 - 500 );
-        // object.position.y = s * ( Math.random() * 600 - 300 );
-        // object.position.z = s * ( Math.random() * 800 - 400 );
+          object.material.ambient = object.material.color;
 
-        // object.rotation.x = Math.random() * 2 * Math.PI;
-        // object.rotation.y = Math.random() * 2 * Math.PI;
-        // object.rotation.z = Math.random() * 2 * Math.PI;
+          object.position.x = s * ( Math.random() * 1000 - 500 );
+          object.position.y = s * ( Math.random() * 600 - 300 );
+          object.position.z = s * ( Math.random() * 800 - 400 );
 
-        // object.scale.x = Math.random() * 2 + 1;
-        // object.scale.y = Math.random() * 2 + 1;
-        // object.scale.z = Math.random() * 2 + 1;
+          object.rotation.x = Math.random() * 2 * Math.PI;
+          object.rotation.y = Math.random() * 2 * Math.PI;
+          object.rotation.z = Math.random() * 2 * Math.PI;
 
-        // object.updateMatrixWorld();
-        
-        var carGeometry = new THREE.BoxGeometry(1, 1, 1);
+          object.scale.x = Math.random() * 2 + 1;
+          object.scale.y = Math.random() * 2 + 1;
+          object.scale.z = Math.random() * 2 + 1;
 
-        var car = new THREE.Mesh(carGeometry, depthMaterial);
+          object.updateMatrixWorld();
+          //THREE.GeometryUtils.merge( g, object );
+          g.merge( object.geometry, object.matrixWorld );
 
-        car.material.color = 0xffffff;
-        car.position.set(200, -260, 640);
-        car.scale.set(160, 300, 800);
-
-        car.rotation.y += 90 * Math.PI / 180;
-
-        car.updateMatrixWorld();
-
-        //THREE.GeometryUtils.merge( g, object );
-        g.merge( car.geometry, car.matrixWorld );
-
-        
+        }
 
         depthMaterial = new THREE.ShaderMaterial( {
 
@@ -592,8 +408,3 @@ var planeImage = imagePath + 'roads.jpg';
         //renderer.render( scene, camera );
 
       }
-
-    </script>
-
-  </body>
-</html>
