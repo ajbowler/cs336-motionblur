@@ -7,7 +7,6 @@ var container;
 var worldGeometry;
 var camera, controls, scene, renderer;
 var car;
-var objects = [], plane, sphere;
 var composer, pass, composer2, pass2;
 var mesh;
 var clock = new THREE.Clock();
@@ -17,7 +16,6 @@ var nfov = 70;
 var mCurrent = new THREE.Matrix4();
 var mPrev = new THREE.Matrix4();
 var tmpArray = new THREE.Matrix4();
-var camTranslateSpeed = new THREE.Vector3();
 var prevCamPos = new THREE.Vector3();
 
 var depthMaterial;
@@ -36,6 +34,9 @@ var images = [
 
 var planeImage = imagePath + 'roads.jpg';
 
+/**
+ * The parameters for dat gui.
+ */
 var Params = function() {
   this.blur = 1;
   this.fps = 60;
@@ -152,7 +153,6 @@ function init() {
   /////////////////////////////////////
 
   depthMaterial = new THREE.ShaderMaterial({
-
     uniforms: {
       mNear: {type: 'f', value: camera.near},
       mFar: {type: 'f', value: camera.far},
@@ -172,7 +172,6 @@ function init() {
 
   mesh2 = new THREE.Mesh(worldGeometry, depthMaterial);
   scene.add(mesh2);
-
 
   renderer = new THREE.WebGLRenderer({antialias: true});
   document.body.appendChild(renderer.domElement);
@@ -226,7 +225,6 @@ function init() {
 }
 
 function onWindowResize() {
-
   var s = 1;
   composer.setSize(s * window.innerWidth, s * window.innerHeight);
   composer2.setSize(s * window.innerWidth, s * window.innerHeight);
@@ -235,23 +233,17 @@ function onWindowResize() {
 
   renderer.setSize(s * window.innerWidth, s * window.innerHeight);
   pass.uniforms.resolution.value.set(s * window.innerWidth, s * window.innerHeight);
-
 }
 
 function animate() {
-
   requestAnimationFrame(animate);
-
   render();
-  
 }
 
 var lastTime = Date.now();
 var projectionMatrixInverse = new THREE.Matrix4();
 
 function render() {
-
-  var ellapsedFactor = clock.getDelta();
 
   var t = Date.now();
   if(t - lastTime > (1000 / params.fps)) {
