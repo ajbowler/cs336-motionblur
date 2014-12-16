@@ -4,16 +4,13 @@
 /* global dat: true*/
 
 var container;
-var g;
+var worldGeometry;
 var camera, controls, scene, renderer;
 var car;
 var objects = [], plane, sphere;
 var composer, pass, composer2, pass2;
 var mesh;
 var clock = new THREE.Clock();
-var lon = 0;
-var lat = 0, position = {x: 0, y: 0}, isUserInteracting = false;
-var keys = {up: false, left: false, right: false, down: false, forward: false, back: false};
 var fov = 70;
 var nfov = 70;
 
@@ -23,14 +20,9 @@ var tmpArray = new THREE.Matrix4();
 var camTranslateSpeed = new THREE.Vector3();
 var prevCamPos = new THREE.Vector3();
 
-var mouse = new THREE.Vector2();
-var offset = new THREE.Vector3();
-var INTERSECTED, SELECTED;
-
 var depthMaterial;
 var meshMaterial = new THREE.MeshPhongMaterial({color: 0x806040, specular: 0xffffff, specularity: 10, shading: THREE.FlatShading});
 var meshMaterial2 = new THREE.MeshBasicMaterial({color: 0xffffff, emissive: 0xffffff});
-var sphereMaterial = new THREE.MeshNormalMaterial({color: 0xff00ff, specular: 0x806040, specularity: 10, shading: THREE.SmoothShading});
 
 var imagePath = '../resources/images/';
 var images = [
@@ -55,21 +47,12 @@ init();
 animate();
 
 function init() {
-
   container = document.createElement('div');
   document.body.appendChild(container);
 
   camera = new THREE.PerspectiveCamera(fov, window.innerWidth / window.innerHeight, 1, 9000);
   camera.position.set(-50, 1300, 2250);
 
-  /*controls = new THREE.TrackballControls(camera);
-  controls.rotateSpeed = 1.0;
-  controls.zoomSpeed = 1.2;
-  controls.panSpeed = 0.8;
-  controls.noZoom = false;
-  controls.noPan = false;
-  controls.staticMoving = true;
-  controls.dynamicDampingFactor = 0.3;*/
   controls = new THREE.OrbitControls(camera);
   controls.damping = 0.2;
   controls.keyPanSpeed = 700;
@@ -108,6 +91,11 @@ function init() {
 
   scene.add(light);
   
+
+  /////////////////////////////////
+  //////////// SKYBOX /////////////
+  /////////////////////////////////
+  
   var skyboxMap = THREE.ImageUtils.loadTextureCube(images);
   var skyboxShader = THREE.ShaderLib["cube"];
   skyboxShader.uniforms["tCube"].value = skyboxMap;
@@ -134,9 +122,11 @@ function init() {
   road.position.y -= 500;
   scene.add(road);
 
-  var s = 3;
-  g = new THREE.Geometry();
-  var geometry = new THREE.BoxGeometry(40, 40, 40);
+  worldGeometry = new THREE.Geometry();
+
+  /////////////////////////////////
+  //////////// OBJECT /////////////
+  /////////////////////////////////
 
   var carGeometry = new THREE.BoxGeometry(1, 1, 1);
 
@@ -155,8 +145,11 @@ function init() {
 
   car.updateMatrixWorld();
 
-  //THREE.GeometryUtils.merge(g, object);
-  g.merge(car.geometry, car.matrixWorld);
+  worldGeometry.merge(car.geometry, car.matrixWorld);
+
+  /////////////////////////////////////
+  /////////// DEPTH BUFFER ////////////
+  /////////////////////////////////////
 
   depthMaterial = new THREE.ShaderMaterial({
 
@@ -170,13 +163,14 @@ function init() {
     fragmentShader: document.getElementById('fs-depthRender').textContent
   });
 
-  mesh = new THREE.Mesh(g, depthMaterial);
+  // There are two meshes here to hold the matrices for the current and previous frames.
+  mesh = new THREE.Mesh(worldGeometry, depthMaterial);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   scene.add(mesh);
   scene.add(car);
 
-  mesh2 = new THREE.Mesh(g, depthMaterial);
+  mesh2 = new THREE.Mesh(worldGeometry, depthMaterial);
   scene.add(mesh2);
 
 
@@ -193,7 +187,11 @@ function init() {
   composer2 = new THREE.EffectComposer(renderer);
   composer2.addPass(new THREE.RenderPass(scene, camera));
 
-  shader = {
+  //////////////////////////////////////
+  //////////// MOTION BLUR /////////////
+  //////////////////////////////////////
+
+  var motionBlurShader = {
 
     uniforms: {
       tDiffuse: {type: 't', value: null},
@@ -208,7 +206,7 @@ function init() {
     fragmentShader: document.getElementById('fs-motionBlur').textContent
   }
 
-  pass = new THREE.ShaderPass(shader);
+  pass = new THREE.ShaderPass(motionBlurShader);
   pass.renderToScreen = true;
   composer.addPass(pass);
 
@@ -217,11 +215,14 @@ function init() {
   window.addEventListener('resize', onWindowResize, false);
   onWindowResize();
 
+  //////////////////////////////////
+  //////////// DAT GUI /////////////
+  //////////////////////////////////
+
   var gui = new dat.GUI();
   gui.add(params, 'blur', .1, 10);
   gui.add(params, 'fps', 1, 60);
   gui.add(params, 'carSpeed', 0, 100);
-
 }
 
 function onWindowResize() {
@@ -245,7 +246,6 @@ function animate() {
   
 }
 
-var animationSpeed = 10;
 var lastTime = Date.now();
 var projectionMatrixInverse = new THREE.Matrix4();
 
@@ -265,6 +265,8 @@ function render() {
       car.position.set(1500, -260, 640);
     }
 
+    car.updateMatrix();
+    car.updateMatrixWorld();
 
     camera.updateMatrix();
     camera.updateMatrixWorld();
@@ -290,6 +292,5 @@ function render() {
     prevCamPos.copy(camera.position);
 
     lastTime = t;
-
   }
 }

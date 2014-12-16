@@ -5,7 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
     <style>
-      *{ box-sizing: border-box;}
+      *{box-sizing: border-box;}
       body {
         font-family: tahoma;
         background-color: #f0f0f0;
@@ -13,7 +13,7 @@
         overflow: hidden;
         font-size: 12px;
       }
-      p{ color: white; position: absolute; left: 10px; top: 5px; text-shadow: 0 -1px 0 rgba( 0, 0, 0, .6 ); z-index: 100;}
+      p{ color: white; position: absolute; left: 10px; top: 5px; text-shadow: 0 -1px 0 rgba(0, 0, 0, .6); z-index: 100;}
     </style>
 
   </head>
@@ -30,39 +30,45 @@
     <script src="../lib/RenderPass.js"></script>
 
     <script type="x-shader/x-vertex" id="vs-motionBlur">
-
       varying vec2 vUv;
       
       void main() {
-
-        gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         vUv = uv;
-
       }
-
     </script>
 
     <script type="x-shader/x-fragment" id="fs-motionBlur">
 
+      // predefined in the shader, "uv coordinates"
       varying vec2 vUv;
+
+      // values from previous render
       uniform sampler2D tDiffuse;
       uniform sampler2D tColor;
+
       uniform vec2 resolution;
+      
+      // matrices from the current and previous frames
       uniform mat4 viewProjectionInverseMatrix;
       uniform mat4 previousViewProjectionMatrix;
+
+      // the higher the factor, the more sensitive the motion blur is
       uniform float velocityFactor;
 
+      /**
+       * Grabs the depth value from the depth buffer, values are calculated in the other shaders.
+       */
       float unpack_depth(const in vec4 color) {
         return color.r;
-        //return ( color.r * 256. * 256. * 256. + color.g * 256. * 256. + color.b * 256. + color.a ) / ( 256. * 256. * 256. );
       }
 
       void main() {
         
-        float zOverW = unpack_depth( texture2D( tDiffuse, vUv ) );
+        float zOverW = unpack_depth(texture2D(tDiffuse, vUv));
 
         // H is the viewport position at this pixel in the range -1 to 1.  
-        vec4 H = vec4( vUv.x * 2. - 1., vUv.y * 2. - 1., zOverW, 1. );  
+        vec4 H = vec4(vUv.x * 2. - 1., vUv.y * 2. - 1., zOverW, 1.);  
         // Transform by the view-projection inverse.  
         vec4 D = H * viewProjectionInverseMatrix;
         // Divide by w to get the world position.  
@@ -74,20 +80,22 @@
         // Convert to nonhomogeneous points [-1,1] by dividing by w.  
         previousPos /= previousPos.w;  
         // Use this frame's position and last frame's to compute the pixel velocity.  
-        vec2 velocity = velocityFactor * ( currentPos.xy - previousPos.xy ) * .5;
-        //velocity = .01 *  normalize( velocity ); 
+        vec2 velocity = velocityFactor * (currentPos.xy - previousPos.xy) * .5;
 
-        vec4 finalColor = vec4( 0. );
-        vec2 offset = vec2( 0. ); 
+        // This is where the blur is created.
+        // Sample all of the color values along the velocity vector.
+        // Average them out to get the new color for each pixel, thus creating a "blur".
+        vec4 finalColor = vec4(0.);
+        vec2 offset = vec2(0.); 
         float weight = 0.;
         const int samples = 20;
-        for( int i = 0; i < samples; i++ ) {  
-          offset = velocity * ( float( i ) / ( float( samples ) - 1. ) - .5 );
-          vec4 c = texture2D( tColor, vUv + offset );
+        for(int i = 0; i < samples; i++) {  
+          offset = velocity * (float(i) / (float(samples) - 1.) - .5);
+          vec4 c = texture2D(tColor, vUv + offset);
           finalColor += c;
         }  
-        finalColor /= float( samples );
-        gl_FragColor = vec4( finalColor.rgb, 1. );
+        finalColor /= float(samples);
+        gl_FragColor = vec4(finalColor.rgb, 1.);
       }
 
     </script>
@@ -95,10 +103,8 @@
     <script type="x-shader/x-vertex" id="vs-depthRender">
       
       void main() {
-
-        vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
         gl_Position = projectionMatrix * mvPosition;
-
       }
 
     </script>
@@ -109,21 +115,22 @@
     uniform float mFar;
     uniform float opacity;
 
-    vec4 pack_depth( const in float f ) {
+    /**
+     * pack the depth value into the color values
+     */
+    vec4 pack_depth(const in float f) {
       vec4 color;
-      color.r = floor( f / ( 256. * 256. * 256. ) );
-      color.g = floor( ( mod( f,  256. * 256. * 256. ) ) / ( 256. * 256. ) );
-      color.b = floor( ( mod( f,  256. * 256. ) ) / 256. );
-      color.a = floor( mod( f, 256.)  );
+      color.r = floor(f / (256. * 256. * 256.));
+      color.g = floor((mod(f,  256. * 256. * 256.)) / (256. * 256.));
+      color.b = floor((mod(f,  256. * 256.)) / 256.);
+      color.a = floor(mod(f, 256.) );
       return color / 256.0;
     }
 
     void main() {
       float depth = gl_FragCoord.z / gl_FragCoord.w;
-      float color = 1. - ( depth - mNear ) / ( mFar - mNear );
-      // color *= 256. * 256. * 256. * 256.;
-      // gl_FragColor = pack_depth( color );
-      gl_FragColor = vec4( color, color, color, 1. );
+      float color = 1. - (depth - mNear) / (mFar - mNear);
+      gl_FragColor = vec4(color, color, color, 1.);
     }
 
     </script>
